@@ -7,14 +7,9 @@
 import re
 import numpy as np
 
-try:
-    from .Animation import Animation
-    from . import AnimationStructure
-    from .Quaternions import Quaternions
-except:
-    from Animation import Animation
-    import AnimationStructure
-    from Quaternions import Quaternions
+from Motion.Animation import Animation
+import Motion.AnimationStructure
+from Motion.Quaternions import Quaternions
 
 channelmap = {
     'Xrotation' : 'x',
@@ -78,10 +73,12 @@ def load(filename, start=None, end=None, order=None, world=True):
     parents = np.array([], dtype=int)
     end_site_joints = np.array([], dtype=int)
     
+    idx = 0
     for line in f:
-        
+        idx += 1
         if "HIERARCHY" in line: continue
         if "MOTION" in line: continue
+        if line == '\n': continue
 
         rmatch = re.match(r"\s*ROOT\s+(\S+)", line)
         if rmatch:
@@ -176,6 +173,7 @@ def load(filename, start=None, end=None, order=None, world=True):
             continue
         
         dmatch = line.strip().split(' ')
+        dmatch = [x for x in dmatch if x != '']
         if dmatch:
             data_block = np.array(list(map(float, dmatch)))
             N = len(parents) - len(end_site_joints)

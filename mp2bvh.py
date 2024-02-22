@@ -1,16 +1,21 @@
-"""Mp4 to Bvh.
+"""Npy to Bvh.
 
 Usage:
-  mp2bvh --file FILE
+  mp2bvh --file FILE [--out FILE] [--input TYPE] [--output TYPE]
 
 Options:
-  -h --help       Show this screen.
-  --file FILE  File to translate."""
+  -h --help       help message.
+  --file FILE  File to translate.
+  --out  FILE  Output file.  - [default: None]
+  --input TYPE   Input type  - bvh/npy.     [default: bvh]
+  --output TYPE  Output type - bvh/npy/mp4. [default: bvh]
+  """
 import os
 
 import numpy as np
 from docopt import docopt
 
+from mp2bvh.dynamic_motion import DynamicMotion
 from Motion import BVH
 from Motion.InverseKinematics import animation_from_positions
 
@@ -41,11 +46,14 @@ SMPL_JOINT_NAMES = [
     # 'L_Hand', # 22
     # 'R_Hand', # 23
     ]
-PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21])
-HUMAN_ML_PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19])
+PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+                     9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21])
+HUMAN_ML_PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5,
+                              6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19])
 
 
 def load_file(filepath: str):
+    '''Load a .npy file and return the positions.'''
     _, file_extention = os.path.splitext(filepath)
     assert file_extention == '.npy', f'{file_extention} file was given, please use .npy files'
 
@@ -53,7 +61,8 @@ def load_file(filepath: str):
     return positions
 
 
-def smpl2bvh(filepath: str):
+def smpl_to_bvh(filepath: str):
+    '''Load a .npy file translate it and save a .bvh file.'''
     positions = load_file(filepath)
     motion = positions['motion']
     motion = motion.transpose(0, 3, 1, 2) # samples x joints x coord x frames ==> samples x frames x joints x coord
@@ -65,11 +74,30 @@ def smpl2bvh(filepath: str):
         anim, sorted_order, _ = animation_from_positions(p, HUMAN_ML_PARENTS)
         BVH.save(bvh_path.format(i), anim, names=np.array(SMPL_JOINT_NAMES)[sorted_order])
 
+def fix_output_file(out: str, intput_file: str, output_type:str) -> str:
+    '''If the output file is None, create a new file with the same name as the input file and the output type.'''
+    if not out:
+        out = f'{intput_file[:-4]}.{output_type}'
+
+    return out
 
 def main():
     arguments = docopt(__doc__, version='Naval Fate 2.0')
     file = arguments['--file']
-    smpl2bvh(file)
+
+    if arguments['--input'] == 'bvh':
+        motion = DynamicMotion.init_from_bvh(file)
+    elif arguments['--input'] == 'npy':
+        motion = DynamicMotion.init_from_npy(file)
+    else:
+        raise NotImplementedError(f'input type {arguments["--input"]}not implemented yet')
+    
+    output_file = fix_output_file(arguments['--out'], file, arguments['--output'])
+
+    if arguments['--output'] == 'bvh':
+        motion.to_bvh(output_file)
+    elif arguments['--output'] == 'mp4':
+        motion.to_mp4(output_file)
 
 if __name__ == '__main__':
    main()
