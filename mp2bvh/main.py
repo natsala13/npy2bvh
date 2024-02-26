@@ -15,7 +15,7 @@ import os
 import numpy as np
 from docopt import docopt
 
-from mp2bvh.dynamic_motion import DynamicMotion
+from mp2bvh.utils.dynamic_motion import DynamicMotion
 from Motion import BVH
 from Motion.InverseKinematics import animation_from_positions
 

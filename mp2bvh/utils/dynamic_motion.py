@@ -5,7 +5,7 @@ from Motion import BVH, Animation
 from Motion.Animation import positions_global
 from Motion.AnimationStructure import get_kinematic_chain
 from Motion.InverseKinematics import animation_from_positions
-from mp2bvh.plot_script import plot_3d_motion
+from mp2bvh.utils.plot_script import plot_3d_motion
 
 
 PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
@@ -69,12 +69,14 @@ class DynamicMotion:
 
     def to_bvh(self, filepath: str) -> None:
         '''Save the dynamic motion to a .bvh file.'''
-        animation, sorted_order, _ = animation_from_positions(self.positions, self.parents)
+        animation, sorted_order, _ = animation_from_positions(self.positions[0], self.parents)
         # save_path = filepath[:-4] + '_anim{}.bvh'
         BVH.save(filepath, animation, names=np.array(SMPL_JOINT_NAMES)[sorted_order])
+        print(f'Saved bvh file to {filepath}')
 
     def to_mp4(self, filepath: str, title: str='') -> None:
         '''Save the dynamic motion to a .mp4 file.'''
         plot_3d_motion(filepath, self.kinematic_tree,
                         self.positions, title=title, fps=20)
+        print(f'Saved mp4 file to {filepath}')
 
