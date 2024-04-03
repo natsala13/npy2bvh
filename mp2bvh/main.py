@@ -81,7 +81,7 @@ def smpl_to_bvh(filepath: str):
 
 def fix_output_file(out: str, intput_file: str, output_type:str) -> str:
     '''If the output file is None, create a new file with the same name as the input file and the output type.'''
-    if not out:
+    if out == 'None':
         out = f'{intput_file[:-4]}.{output_type}'
 
     return out
