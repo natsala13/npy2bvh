@@ -57,10 +57,14 @@ class DynamicMotion:
         '''Load motion from .npy file'''
         assert filepath.endswith('.npy'), f'{filepath} is not a .npy file'
         
-        positions = np.load(filepath, allow_pickle=True).item()
+        positions = np.load(filepath, allow_pickle=True)
+        try:
+            positions = positions.item()
+            motion = positions['motion']
+            motion = motion.transpose(0, 3, 1, 2) # B, J, f, T ==> B, T, J, f
+        except Exception as e:
+            motion = positions[np.newaxis, :]
         
-        motion = positions['motion']
-        motion = motion.transpose(0, 3, 1, 2) # B, J, f, T ==> B, T, J, f
         return cls(motion, parents)
 
     @property

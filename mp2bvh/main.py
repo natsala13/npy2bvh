@@ -6,7 +6,7 @@ Usage:
 Options:
   -h --help       help message.
   --file FILE  File to translate.
-  --out  FILE  Output file.  - [default: None]
+  --out FILE  Output File to save to.  [default: None]
   --input TYPE   Input type  - bvh/npy.     [default: bvh]
   --output TYPE  Output type - bvh/npy/mp4. [default: bvh]
   """
@@ -57,7 +57,12 @@ def load_file(filepath: str):
     _, file_extention = os.path.splitext(filepath)
     assert file_extention == '.npy', f'{file_extention} file was given, please use .npy files'
 
-    positions = np.load(filepath, allow_pickle=True).item()
+    positions = np.load(filepath, allow_pickle=True)
+    try:
+        positions = positions.item()
+    except Exception as e:
+        pass
+
     return positions
 
 
