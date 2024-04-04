@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 # import einops
 from Motion import BVH, Animation
@@ -6,6 +7,7 @@ from Motion.Animation import positions_global
 from Motion.AnimationStructure import get_kinematic_chain
 from Motion.InverseKinematics import animation_from_positions
 from mp2bvh.utils.plot_script import plot_3d_motion
+from mp2bvh.utils.motion_transformation import recover_from_ric
 
 
 PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
@@ -66,6 +68,17 @@ class DynamicMotion:
             motion = positions[np.newaxis, :]
         
         return cls(motion, parents)
+    
+    @classmethod
+    def init_from_humanml(cls, filepath: str):
+        '''Load motion from .npy file'''
+        assert filepath.endswith('.npy'), f'{filepath} is not a .npy file'
+        
+        motion = np.load(filepath, allow_pickle=True)
+        
+        positions = recover_from_ric(torch.from_numpy(motion), 22)
+        
+        return cls(positions.numpy(), HUMAN_ML_PARENTS)
 
     @property
     def kinematic_tree(self) -> list[list[int]]:
@@ -83,4 +96,4 @@ class DynamicMotion:
         plot_3d_motion(filepath, self.kinematic_tree,
                         self.positions, title=title, fps=20)
         print(f'Saved mp4 file to {filepath}')
-
+    

@@ -94,6 +94,8 @@ def main():
         motion = DynamicMotion.init_from_bvh(file)
     elif arguments['--input'] == 'npy':
         motion = DynamicMotion.init_from_npy(file)
+    elif arguments['--input'] == 'humanml':
+        motion = DynamicMotion.init_from_humanml(file)
     else:
         raise NotImplementedError(f'input type {arguments["--input"]}not implemented yet')
     
