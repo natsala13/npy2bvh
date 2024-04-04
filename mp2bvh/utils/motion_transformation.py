@@ -1,5 +1,5 @@
 import torch
-from Motion.Quaternions import qinv, qrot
+from mp2bvh.Motion.Quaternions import qinv, qrot
 
 
 def recover_root_rot_pos(data):

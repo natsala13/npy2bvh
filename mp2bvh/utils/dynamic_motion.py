@@ -1,11 +1,11 @@
 import torch
 import numpy as np
 # import einops
-from Motion import BVH, Animation
 
-from Motion.Animation import positions_global
-from Motion.AnimationStructure import get_kinematic_chain
-from Motion.InverseKinematics import animation_from_positions
+from mp2bvh.Motion import BVH
+from mp2bvh.Motion.Animation import positions_global
+from mp2bvh.Motion.AnimationStructure import get_kinematic_chain
+from mp2bvh.Motion.InverseKinematics import animation_from_positions
 from mp2bvh.utils.plot_script import plot_3d_motion
 from mp2bvh.utils.motion_transformation import recover_from_ric
 

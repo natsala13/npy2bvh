@@ -16,8 +16,8 @@ import numpy as np
 from docopt import docopt
 
 from mp2bvh.utils.dynamic_motion import DynamicMotion
-from Motion import BVH
-from Motion.InverseKinematics import animation_from_positions
+from mp2bvh.Motion import BVH
+from mp2bvh.Motion.InverseKinematics import animation_from_positions
 
 
 SMPL_JOINT_NAMES = [
