@@ -7,9 +7,9 @@
 import re
 import numpy as np
 
-from Motion.Animation import Animation
-from Motion.AnimationStructure import children_list
-from Motion.Quaternions import Quaternions
+from mp2bvh.Motion.Animation import Animation
+from mp2bvh.Motion.AnimationStructure import children_list
+from mp2bvh.Motion. Quaternions import Quaternions
 
 channelmap = {
     'Xrotation' : 'x',
