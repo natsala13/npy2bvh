@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 import numpy as np
 # import einops
@@ -42,7 +44,7 @@ SMPL_JOINT_NAMES = [
     ]
 
 class DynamicMotion:
-    def __init__(self, positions: np.ndarray, parents: list[int]=PARENTS):
+    def __init__(self, positions: np.ndarray, parents: np.ndarray=PARENTS):
         self.positions = positions
         self.parents = parents
 
@@ -55,7 +57,7 @@ class DynamicMotion:
         return cls(positions, animation.parents)
     
     @classmethod
-    def init_from_npy(cls, filepath: str, parents: list[int]=HUMAN_ML_PARENTS):
+    def init_from_npy(cls, filepath: str, parents: np.ndarray=HUMAN_ML_PARENTS):
         '''Load motion from .npy file'''
         assert filepath.endswith('.npy'), f'{filepath} is not a .npy file'
         
@@ -81,7 +83,7 @@ class DynamicMotion:
         return cls(positions.numpy(), HUMAN_ML_PARENTS)
 
     @property
-    def kinematic_tree(self) -> list[list[int]]:
+    def kinematic_tree(self) -> List[List[int]]:
         return get_kinematic_chain(self.parents)
 
     def to_bvh(self, filepath: str) -> None:
