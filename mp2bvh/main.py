@@ -11,6 +11,7 @@ Options:
   --output TYPE  Output type - bvh/npy/mp4. [default: bvh]
   """
 import os
+from pathlib import Path
 
 import numpy as np
 from docopt import docopt
@@ -88,7 +89,7 @@ def fix_output_file(out: str, intput_file: str, output_type:str) -> str:
 
 def main():
     arguments = docopt(__doc__, version='Naval Fate 2.0')
-    file = arguments['--file']
+    file = Path(arguments['--file'])
 
     if arguments['--input'] == 'bvh':
         motion = DynamicMotion.init_from_bvh(file)
@@ -98,6 +99,8 @@ def main():
         motion = DynamicMotion.init_from_humanml(file)
     elif arguments['--input'] == 'xia':
         motion = DynamicMotion.init_from_xia(file)
+    elif arguments['--input'] == 'interx':
+        motion = DynamicMotion.init_from_interx(file)
     else:
         raise NotImplementedError(f'input type {arguments["--input"]}not implemented yet')
     

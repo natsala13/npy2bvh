@@ -1,4 +1,4 @@
-from typing import List
+from pathlib import Path
 
 import torch
 import numpy as np
@@ -9,14 +9,41 @@ from mp2bvh.Motion.Quaternions import Quaternions
 from mp2bvh.Motion.Animation import positions_global
 from mp2bvh.Motion.AnimationStructure import get_kinematic_chain
 from mp2bvh.Motion.InverseKinematics import animation_from_positions
-from mp2bvh.utils.plot_script import plot_3d_motion
+from mp2bvh.utils.plot_script import plot_3d_motion, plot_3d_motion_interaction
 from mp2bvh.utils.motion_transformation import recover_from_ric
 
 
 PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8,
                      9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21])
-HUMAN_ML_PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4, 5,
+HUMAN_ML_PARENTS = np.array([-1, 0, 0, 0, 1, 2, 3, 4,    5,
                               6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19])
+INTERX_PARENTS = np.array([-1, 0, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 12, 13, 10, 15, 16, 17, 10, 19])
+
+INTERX_JOINT_NAMES = [
+    'Pelvis', # 0
+    'L_Hip', # 1
+    'L_Knee', # 2
+    'L_Ankle', # 3
+    'L_Foot', # 4
+    'R_Hip', # 5
+    'R_Knee', # 6
+    'R_Ankle', # 7
+    'R_Foot', # 8
+    'Spine1', # 9
+    'Spine2', # 10
+    'L_Collar', # 11
+    'L_Shoulder', # 12
+    'L_Elbow', # 13
+    'L_Wrist', # 14
+    'R_Collar', # 15
+    'R_Shoulder', # 16
+    'R_Elbow', # 17
+    'R_Wrist', # 18
+    'Neck', # 19
+    'Head', # 20
+    ]
+
+
 SMPL_JOINT_NAMES = [
     'Pelvis', # 0
     'L_Hip', # 1
@@ -45,9 +72,10 @@ SMPL_JOINT_NAMES = [
     ]
 
 class DynamicMotion:
-    def __init__(self, positions: np.ndarray, parents: np.ndarray=PARENTS):
+    def __init__(self, positions: np.ndarray, parents: np.ndarray=PARENTS, fps: int=20):
         self.positions = positions
         self.parents = parents
+        self.fps = fps
 
     @classmethod
     def init_from_bvh(cls, filepath: str):
@@ -56,7 +84,7 @@ class DynamicMotion:
         animation, _, _ = BVH.load(filepath)
         positions = positions_global(animation)
         return cls(positions, animation.parents)
-    
+
     @classmethod
     def init_from_npy(cls, filepath: str, parents: np.ndarray=HUMAN_ML_PARENTS):
         '''Load motion from .npy file'''
@@ -99,22 +127,48 @@ class DynamicMotion:
         positions = cls.restore_animation_from_xia(body[:, :, :3], traj)
         
         return cls(positions, HUMAN_ML_PARENTS)
+    
+    @classmethod
+    def init_from_interx(cls, filepath: Path):
+        '''Load motion from .npy file'''
+        # assert filepath.endswith('.npy'), f'{filepath} is not a .npy file'
+        body_joints = range(0, 11)
+        arms_no_hands = [*range(11, 15), *range(35, 39)]
+        head = [59, 60]
+        all_joints = [*body_joints, *arms_no_hands, *head]
+        why_remove_joints = np.concatenate(
+                [range(0,5),range(6,10),range(11,63)]
+                )
+
+        all_motions = []
+        for file in filepath.iterdir():    
+            motion = np.load(file)
+            motion = motion[:, why_remove_joints]
+            motion = motion[:, all_joints]
+
+            # Downsample to 20 fps
+            motion = motion[range(0, motion.shape[0], 3)]
+
+            all_motions.append(motion)
+        
+        return cls(all_motions, INTERX_PARENTS, fps=20)
 
     @property
-    def kinematic_tree(self) -> List[List[int]]:
+    def kinematic_tree(self) -> list[list[int]]:
         return get_kinematic_chain(self.parents)
 
     def to_bvh(self, filepath: str) -> None:
         '''Save the dynamic motion to a .bvh file.'''
         animation, sorted_order, _ = animation_from_positions(self.positions[0], self.parents)
         # save_path = filepath[:-4] + '_anim{}.bvh'
-        BVH.save(filepath, animation, names=np.array(SMPL_JOINT_NAMES)[sorted_order])
+        BVH.save(filepath, animation, names=np.array(INTERX_JOINT_NAMES)[sorted_order])
         print(f'Saved bvh file to {filepath}')
 
     def to_mp4(self, filepath: str, title: str='') -> None:
         '''Save the dynamic motion to a .mp4 file.'''
-        plot_3d_motion(filepath, self.kinematic_tree,
-                        self.positions, title=title, fps=20)
+        plot_fn = plot_3d_motion_interaction if len(self.positions) == 2 else plot_3d_motion
+        plot_fn(filepath, self.kinematic_tree,
+                        self.positions, title=title, fps=self.fps)
         print(f'Saved mp4 file to {filepath}')
     
     @staticmethod
