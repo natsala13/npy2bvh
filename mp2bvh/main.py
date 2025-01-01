@@ -96,6 +96,8 @@ def main():
         motion = DynamicMotion.init_from_npy(file)
     elif arguments['--input'] == 'humanml':
         motion = DynamicMotion.init_from_humanml(file)
+    elif arguments['--input'] == 'xia':
+        motion = DynamicMotion.init_from_xia(file)
     else:
         raise NotImplementedError(f'input type {arguments["--input"]}not implemented yet')
     

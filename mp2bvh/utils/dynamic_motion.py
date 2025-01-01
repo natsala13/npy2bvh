@@ -2,9 +2,10 @@ from typing import List
 
 import torch
 import numpy as np
-# import einops
+from einops import rearrange
 
 from mp2bvh.Motion import BVH
+from mp2bvh.Motion.Quaternions import Quaternions
 from mp2bvh.Motion.Animation import positions_global
 from mp2bvh.Motion.AnimationStructure import get_kinematic_chain
 from mp2bvh.Motion.InverseKinematics import animation_from_positions
@@ -81,6 +82,23 @@ class DynamicMotion:
         positions = recover_from_ric(torch.from_numpy(motion), 22)
         
         return cls(positions.numpy(), HUMAN_ML_PARENTS)
+    
+    @classmethod
+    def init_from_xia(cls, filepath: str):
+        '''Load motion from .npy file'''
+        assert filepath.endswith('.npy'), f'{filepath} is not a .npy file'
+        motion = np.load(filepath, allow_pickle=True)
+        
+        features = motion[:, :-4]  # Remove feet contact...
+        feature_matrix = rearrange(features, 'time (joints features) -> time joints features',
+                                   joints=21, features=11)
+
+        body = feature_matrix[:, :, :7]
+        traj = feature_matrix[:, :, 7:]
+                              
+        positions = cls.restore_animation_from_xia(body[:, :, :3], traj)
+        
+        return cls(positions, HUMAN_ML_PARENTS)
 
     @property
     def kinematic_tree(self) -> List[List[int]]:
@@ -99,3 +117,33 @@ class DynamicMotion:
                         self.positions, title=title, fps=20)
         print(f'Saved mp4 file to {filepath}')
     
+    @staticmethod
+    def restore_animation_from_xia(pos, traj, start=None, end=None):
+        """
+        :param pos: (F, J, 3)
+        :param traj: (F, J, 4)
+        :param start: start frame index
+        :param end: end frame index
+        :return: positions
+        """
+        if start is None:
+            start = 0
+        if end is None:
+            end = len(pos)
+
+        Rx = traj[start:end, 0, -4]
+        Ry = traj[start:end, 0, -3]
+        Rz = traj[start:end, 0, -2]
+        Rr = traj[start:end, 0, -1]
+
+        rotation = Quaternions.id(1)
+        translation = np.array([[0, 0, 0]])
+
+        for fi in range(len(pos)):
+            pos[fi, :, :] = rotation * pos[fi]
+            pos[fi] = pos[fi] + translation[0]  # NOTE: xyz-translation
+            rotation = Quaternions.from_angle_axis(-Rr[fi], np.array([0, 1, 0])) * rotation
+            translation = translation + rotation * np.array([Rx[fi], Ry[fi], Rz[fi]])
+        global_positions = pos
+
+        return global_positions
