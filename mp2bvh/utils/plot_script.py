@@ -2,12 +2,12 @@ import math
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.animation import FuncAnimation, FFMpegFileWriter
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import mpl_toolkits.mplot3d.axes3d as p3
-# import cv2
 from textwrap import wrap
+from moviepy.editor import VideoClip
+from moviepy.video.io.bindings import mplfig_to_npimage
 
 
 def list_cut_average(ll, intervals):
@@ -24,7 +24,7 @@ def list_cut_average(ll, intervals):
     return ll_new
 
 
-def plot_3d_motion(save_path, kinematic_tree, joints, title, figsize=(3, 3), fps=30, radius=3,
+def plot_3d_motion(save_path, kinematic_tree, joints, title, dataset='stam', figsize=(3, 3), fps=120, radius=3,
                    vis_mode='default', gt_frames=[]):
     matplotlib.use('Agg')
 
@@ -36,7 +36,7 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, figsize=(3, 3), fps
         ax.set_zlim3d([-radius / 3., radius * 2 / 3.])
         # print(title)
         fig.suptitle(title, fontsize=10)
-        ax.grid(b=False)
+        ax.grid(b=None)
 
     def plot_xzPlane(minx, maxx, miny, minz, maxz):
         ## Plot a plane XZ
@@ -50,36 +50,38 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, figsize=(3, 3), fps
         xz_plane.set_facecolor((0.5, 0.5, 0.5, 0.5))
         ax.add_collection3d(xz_plane)
 
-    #         return ax
-
     # (seq_len, joints_num, 3)
     data = joints.copy().reshape(len(joints), -1, 3)
-    
-    data *= 1.5
-    # # preparation related to specific datasets
-    # if dataset == 'kit':
-    #     data *= 0.003  # scale for visualization
-    # elif dataset == 'humanml':
-    #     data *= 1.3  # scale for visualization
-    # elif dataset in ['humanact12', 'uestc']:
-    #     data *= -1.5 # reverse axes, scale for visualization
+
+    # preparation related to specific datasets
+    if dataset == 'kit':
+        data *= 0.003  # scale for visualization
+    elif dataset == 'humanml':
+        data *= 1.3  # scale for visualization
+    elif dataset in ['humanact12', 'uestc']:
+        data *= -1.5 # reverse axes, scale for visualization
+
+    # data *= 0.05
+    frames_number = joints.shape[0]
 
     fig = plt.figure(figsize=figsize)
     plt.tight_layout()
-    ax = p3.Axes3D(fig)
+    # ax = p3.Axes3D(fig)
+    ax = fig.add_subplot(111, projection='3d')
     init()
+    
     MINS = data.min(axis=0).min(axis=0)
     MAXS = data.max(axis=0).max(axis=0)
-    colors_blue = ["#4D84AA", "#5B9965", "#61CEB9", "#34C1E2", "#80B79A", "#4D84AA"]  # GT color
-    colors_orange = ["#DD5A37", "#D69E00", "#B75A39", "#FF6D00", "#DDB50E", "#DD5A37"]  # Generation color
+    colors_blue = ["#4D84AA", "#5B9965", "#61CEB9", "#34C1E2", "#80B79A"]  # GT color
+    colors_orange = ["#DD5A37", "#D69E00", "#B75A39", "#FF6D00", "#DDB50E"]  # Generation color
     colors = colors_orange
     if vis_mode == 'upper_body':  # lower body taken fixed to input motion
         colors[0] = colors_blue[0]
         colors[1] = colors_blue[1]
     elif vis_mode == 'gt':
         colors = colors_blue
-
-    frame_number = data.shape[0]
+    
+    n_frames = data.shape[0]
     #     print(dataset.shape)
 
     height_offset = MINS[1]
@@ -89,27 +91,14 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, figsize=(3, 3), fps
     data[..., 0] -= data[:, 0:1, 0]
     data[..., 2] -= data[:, 0:1, 2]
 
-    #     print(trajec.shape)
-    # import ipdb;ipdb.set_trace()
-
     def update(index):
-        #         print(index)
-        # ax.lines = []
-        # ax.collections = []
-        ax.clear()  # replace upper two lines, so code works with newer matplotlib versions
-
+        # sometimes index is equal to n_frames/fps due to floating point issues. in such case, we duplicate the last frame
+        index = min(n_frames-1, int(index*fps))
+        ax.clear()
         ax.view_init(elev=120, azim=-90)
         ax.dist = 7.5
-        #         ax =
         plot_xzPlane(MINS[0] - trajec[index, 0], MAXS[0] - trajec[index, 0], 0, MINS[2] - trajec[index, 1],
                      MAXS[2] - trajec[index, 1])
-        #         ax.scatter(dataset[index, :22, 0], dataset[index, :22, 1], dataset[index, :22, 2], color='black', s=3)
-
-        # if index > 1:
-        #     ax.plot3D(trajec[:index, 0] - trajec[index, 0], np.zeros_like(trajec[:index, 0]),
-        #               trajec[:index, 1] - trajec[index, 1], linewidth=1.0,
-        #               color='blue')
-        # #             ax = plot_xzPlane(ax, MINS[0], MAXS[0], 0, MINS[2], MAXS[2])
 
         used_colors = colors_blue if index in gt_frames else colors
         for i, (chain, color) in enumerate(zip(kinematic_tree, used_colors)):
@@ -119,21 +108,32 @@ def plot_3d_motion(save_path, kinematic_tree, joints, title, figsize=(3, 3), fps
                 linewidth = 2.0
             ax.plot3D(data[index, chain, 0], data[index, chain, 1], data[index, chain, 2], linewidth=linewidth,
                       color=color)
-        #         print(trajec[:index, 0].shape)
 
         plt.axis('off')
+        ax.set_axis_off()
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.set_zticklabels([])
 
-    ani = FuncAnimation(fig, update, frames=frame_number, interval=1000 / fps, repeat=False)
+        # Hide grid lines
+        ax.grid(False)
 
-    # writer = FFMpegFileWriter(fps=fps)
-    ani.save(save_path, fps=fps)
-    # ani = FuncAnimation(fig, update, frames=frame_number, interval=1000 / fps, repeat=False, init_func=init)
-    # ani.save(save_path, writer='pillow', fps=1000 / fps)
+        # Hide axes ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
 
+
+        return mplfig_to_npimage(fig)
+
+    ani = VideoClip(update)
+    
     plt.close()
+    ani.duration = frames_number / fps
+    
+    # import ipdb;ipdb.set_trace()
+    ani.write_videofile(save_path, fps=fps, threads=4, logger=None)
+    ani.close()
 
 
 def plot_3d_motion_interaction(save_path, kinematic_tree, mp_joints, title, figsize=(10, 10), fps=120, radius=4):
@@ -168,7 +168,9 @@ def plot_3d_motion_interaction(save_path, kinematic_tree, mp_joints, title, figs
     #         return ax
 
     fig = plt.figure(figsize=figsize)
-    ax = p3.Axes3D(fig)
+    plt.tight_layout()
+    # ax = p3.Axes3D(fig)
+    ax = fig.add_subplot(111, projection='3d')
     init()
 
     mp_data = []
@@ -209,13 +211,11 @@ def plot_3d_motion_interaction(save_path, kinematic_tree, mp_joints, title, figs
                         "MINS":MINS,
                         "MAXS":MAXS,
                         "trajec":trajec, })
-    #     print(trajec.shape)
-    def update(index):
-        #         print(index)
-        # ax.lines = []
-        # ax.collections = []
-        ax.clear()
 
+    def update(index):
+        index = min(frame_number-1, int(index*fps))
+        
+        ax.clear()
         ax.view_init(elev=120, azim=-90)
         ax.dist = 15#7.5
         #         ax =
@@ -230,14 +230,31 @@ def plot_3d_motion_interaction(save_path, kinematic_tree, mp_joints, title, figs
                 ax.plot3D(data["joints"][index, chain, 0], data["joints"][index, chain, 1], data["joints"][index, chain, 2], linewidth=linewidth,
                           color=color)
         #         print(trajec[:index, 0].shape)
-
         plt.axis('off')
+        ax.set_axis_off()
         ax.set_xticklabels([])
         ax.set_yticklabels([])
         ax.set_zticklabels([])
 
-    ani = FuncAnimation(fig, update, frames=frame_number, interval=1000 / fps, repeat=False)
+        # Hide grid lines
+        ax.grid(False)
+
+        # Hide axes ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+
+
+        return mplfig_to_npimage(fig)
+
+    # ani = FuncAnimation(fig, update, frames=frame_number, interval=1000 / fps, repeat=False)
+    ani = VideoClip(update)
 
     # writer = FFMpegFileWriter(fps=fps)
-    ani.save(save_path, fps=fps)
+    # ani.save(save_path, fps=fps)
     plt.close()
+    
+    ani.duration = frame_number / fps
+    
+    ani.write_videofile(save_path, fps=fps, threads=4, logger=None)
+    ani.close()  # important
